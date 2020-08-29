@@ -56,7 +56,7 @@ jobs:
       run: |
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
         sudo -E apt-get -qq update
-        sudo -E apt-get -qq install build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch python2.7 unzip zlib1g-dev lib32gcc1 libc6-dev-i386 subversion flex uglifyjs gcc-multilib g++-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx libelf-dev autoconf automake libtool autopoint device-tree-compiler ccache xsltproc rename antlr3 gperf
+        sudo -E apt-get -qq install build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch python3 python2.7 unzip zlib1g-dev lib32gcc1 libc6-dev-i386 subversion flex uglifyjs gcc-multilib g++-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx libelf-dev autoconf automake libtool autopoint device-tree-compiler ccache xsltproc rename antlr3 gperf wget swig rsync
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
@@ -71,7 +71,16 @@ jobs:
     - name: Clone source code
       run: |
         git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
-        mv ${{matrix.target}}/feeds.conf openwrt/
+        if [ -f "common/feeds.conf" ]; then
+        (
+          mv common/feeds.conf openwrt/
+        )
+        fi       
+        if [ -f "${{matrix.target}}/feeds.conf" ]; then
+        (
+          mv ${{matrix.target}}/feeds.conf openwrt/
+        )
+        fi
       
     - name: Free up disk space
       if: env.FREE_UP_DISK == 'true'
@@ -127,16 +136,17 @@ jobs:
         fi
         if [ -n "$(ls -A "common/patches" 2>/dev/null)" ]; then
         (
-          find "common/patches" -type f -name '*.patch'| xargs -i git apply {} || true
+          find "common/patches" -type f -name '*.patch' -print0 | sort -z | xargs -I % -t -0 -n 1 sh -c "cat '%'  | patch -d './' -p0 --forward" || true
         )
         fi
         if [ -n "$(ls -A "${{matrix.target}}/patches" 2>/dev/null)" ]; then
         (
-          find "${{matrix.target}}/patches" -type f -name '*.patch'| xargs -i git apply {} || true
+          find "${{matrix.target}}/patches" -type f -name '*.patch' -print0 | sort -z | xargs -I % -t -0 -n 1 sh -c "cat '%'  | patch -d './' -p0 --forward" || true
         )
         fi
         make defconfig
         [ $(grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/') == generic ] && DEVICE_NAME=$(grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/CONFIG_TARGET_(.*)_DEVICE_.*=y/\1/') || DEVICE_NAME=$(grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/')
+        DEVICE_NAME=`echo ${DEVICE_NAME/xiaomi_redmi-router/redmi}`
         echo "::set-env name=DEVICE_NAME::$DEVICE_NAME"
         
     - name: Default PPPOE Setting
@@ -191,8 +201,13 @@ jobs:
         RANDOM=$$$(date +%s)
         rand=$[$RANDOM % ${#Emoji[@]}]
         echo "::set-env name=EMOJI::${Emoji[$rand]}"
-        [ ${{matrix.target}} == "k2p" ] && echo "::set-env name=NOTICE::刷机时breed里的闪存布局请选择斐讯而非默认的公版"
-        [ ${{matrix.target}} == "x86_64" ] && echo "::set-env name=NOTICE::请分配不少于800M的存储容量"
+        if [ ${{matrix.target}} == "k2p" ]; then
+        echo "::set-env name=NOTICE::刷机时breed里的闪存布局请选择斐讯而非默认的公版"
+        elif [ ${{matrix.target}} == "x86_64" ]; then
+        echo "::set-env name=NOTICE::请分配不少于800M的存储容量"
+        else
+        echo "::set-env name=NOTICE::"
+        fi
  
     - name: Upload firmware to cowtransfer
       if: env.UPLOAD_FIRMWARE_TO_COWTRANSFER == 'true'

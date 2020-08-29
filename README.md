@@ -98,12 +98,21 @@ sudo apt-get -y install build-essential asciidoc binutils bzip2 gawk gettext git
 3. 首次编译执行脚本(以x64为例):
 ```bash
 #!/bin/bash
-rm -Rf openwrt Actions-OpenWrt-Nginx
+rm -Rf openwrt Actions-OpenWrt
 git clone https://github.com/openwrt/openwrt
-git clone https://github.com/garypang13/Actions-OpenWrt-Nginx
-cp -Rf Actions-OpenWrt-Nginx/* openwrt/
+git clone https://github.com/garypang13/Actions-OpenWrt
+cp -Rf Actions-OpenWrt/* openwrt/
 cd openwrt
-mv x86_64/feeds.conf .
+if [ -f "common/feeds.conf" ]; then
+        (
+          mv common/feeds.conf ./
+        )
+fi       
+if [ -f "x86_64/feeds.conf" ]; then
+        (
+          mv x86_64/feeds.conf ./
+        )
+fi
 ./scripts/feeds update -a
 if [ -n "$(ls -A "common/files" 2>/dev/null)" ]; then
 	cp -rf common/files files
@@ -136,10 +145,10 @@ if [ -n "$(ls -A "x86_64/diy" 2>/dev/null)" ]; then
 	cp -Rf x86_64/diy/* ./
 fi
 if [ -n "$(ls -A "common/patches" 2>/dev/null)" ]; then
-	find "common/patches" -type f -name '*.patch' | xargs -i git apply {}
+          find "common/patches" -type f -name '*.patch' -print0 | sort -z | xargs -I % -t -0 -n 1 sh -c "cat '%'  | patch -d './' -p0 --forward"
 fi
 if [ -n "$(ls -A "x86_64/patches" 2>/dev/null)" ]; then
-	find "x86_64/patches" -type f -name '*.patch' | xargs -i git apply {}
+          find "x86_64/patches" -type f -name '*.patch' -print0 | sort -z | xargs -I % -t -0 -n 1 sh -c "cat '%'  | patch -d './' -p0 --forward"
 fi
 mv x86_64/.config .config
 make defconfig
@@ -147,12 +156,11 @@ make defconfig
 4. 二次编译执行脚本
 ```bash
 #!/bin/bash
-rm -Rf Actions-OpenWrt-Nginx && git clone https://github.com/garypang13/Actions-OpenWrt-Nginx
-cp -Rf Actions-OpenWrt-Nginx/* openwrt/
+rm -Rf Actions-OpenWrt && git clone https://github.com/garypang13/Actions-OpenWrt
+cp -Rf Actions-OpenWrt/* openwrt/
 cd openwrt
 rm -Rf feeds package/feeds tmp
 [ -f ".config" ] && mv .config .config.bak
-svn co https://github.com/openwrt/openwrt/trunk/package
 git fetch --all
 git reset --hard origin/master
 ./scripts/feeds update -a
@@ -187,10 +195,10 @@ if [ -f "x86_64/default-settings" ]; then
 	cp -f x86_64/default-settings package/*/*/default-settings/files/zzz-default-settings
 fi
 if [ -n "$(ls -A "common/patches" 2>/dev/null)" ]; then
-	find "common/patches" -type f -name '*.patch' | xargs -i git apply {}
+          find "common/patches" -type f -name '*.patch' -print0 | sort -z | xargs -I % -t -0 -n 1 sh -c "cat '%'  | patch -d './' -p0 --forward"
 fi
 if [ -n "$(ls -A "x86_64/patches" 2>/dev/null)" ]; then
-	find "x86_64/patches" -type f -name '*.patch' | xargs -i git apply {}
+          find "x86_64/patches" -type f -name '*.patch' -print0 | sort -z | xargs -I % -t -0 -n 1 sh -c "cat '%'  | patch -d './' -p0 --forward"
 fi
 [ -f ".config.bak" ] && mv .config.bak .config || mv x86_64/.config .config
 make defconfig
@@ -212,8 +220,10 @@ Build OpenWrt using GitHub Actions
 
 ### Acknowledgments
 - [OpenWrt](https://github.com/openwrt/openwrt)
-- [P3TERX](https://github.com/P3TERX/Actions-OpenWrt/blob/master/LICENSE)
 - [Lean's OpenWrt](https://github.com/coolsnowwolf/lede)
+- [CTCGFW's Team](https://github.com/project-openwrt/openwrt)
+- [Lienol](https://github.com/Lienol/openwrt)
+- [P3TERX](https://github.com/P3TERX/Actions-OpenWrt/blob/master/LICENSE)
 - [upload-release-action](https://github.com/svenstaro/upload-release-action)
 - [Microsoft](https://www.microsoft.com)
 - [Microsoft Azure](https://azure.microsoft.com)

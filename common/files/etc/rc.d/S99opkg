@@ -19,6 +19,10 @@ fi
 					uci commit dhcp
 					service dnsmasq reload
 				}
+			else
+			find /usr/lib/opkg/info -name "*.control" \( \
+				\( -exec test -f /overlay/upper/{} \; -exec echo {} overlay \; \) -o \
+				\) | sed -e 's,.*/,,;s/\.control /\t/' > /etc/backup/installed_packages.txt
 			fi
 count=0
 while :; do
@@ -27,31 +31,24 @@ while :; do
 		httping -c 1 https://op.supes.top:88 >/dev/null 2>&1
 		if [ "$?" == "0" ]; then
 			opkg update
-			if [ ! -f /etc/inited ]; then
-				[ uci get dhcp.@dnsmasq[0].noresolv ] && {
-					uci del dhcp.@dnsmasq[0].noresolv
-					uci commit dhcp
-					service dnsmasq reload
-				}
+			# if [ ! -f /etc/inited ]; then
 
 				cp -r /etc/config /etc/confbak
 
 				[ -f "/etc/config/installed-opkg" ] && {
 					for ipk in $(cat /etc/config/installed-opkg); do
-						opkg upgrade --force-overwrite --force-depends --force-checksum $ipk
+						opkg upgrade --force-overwrite --force-checksum $ipk
 					done
 					rm -f /etc/config/installed-opkg
 				} || {
 					for ipk in $(cat /etc/backup/installed_packages.txt | grep -oE '.*overlay' | awk '{print $1}'); do
-						opkg upgrade --force-overwrite --force-depends --force-checksum $ipk
+						opkg upgrade --force-overwrite --force-checksum $ipk
 					done
 				}
-
-				find /etc/confbak -type f ! -path '*/ucitrack' ! -path '*/dhcp' ! -path '*/firewall' ! -path '*/network' ! -path '*/system' -exec cp -f '{}' '/etc/config/' \;
-				rm /etc/config/.*-opkg
+				rm /etc/config/*-opkg
 				source /etc/profile.d/opkginstall.sh
 				opkg install >/dev/null 2>&1
-			fi
+			# fi
 			rm -f /var/lock/opkg.lock
 			touch /etc/inited
 			break
